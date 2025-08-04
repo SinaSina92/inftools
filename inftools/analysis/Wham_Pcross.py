@@ -5,7 +5,7 @@ import numpy as np
 from inftools.analysis.rec_error import rec_block_errors
 from inftools.analysis.toolsWHAM import PcrossWHAM2, get_WHAMfactors
 from inftools.analysis.Free_energy import calculate_free_energy
-
+from inftools.analysis.pcross_plot import plot_combined_pcross
 
 def run_analysis(inp_dic):
     CalcFE = inp_dic["fener"]
@@ -840,7 +840,7 @@ def run_analysis(inp_dic):
             file.write(f"\t{y3}")
             file.write("\n")
     print(f"Error Analysis for rate written to {filename}")
-
+    plot_combined_pcross(folder)
     # Calculate Landau Free energy?
     if "CalcFE" in locals() and CalcFE:
         WHAMfactorsMIN = [x[i0min] for x in matrix]
