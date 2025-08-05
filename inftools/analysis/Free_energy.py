@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import matplotlib.pyplot as plt
 
 def extract(trajfile, xcol, ycol=None):
     # Read and process the file
@@ -8,6 +9,30 @@ def extract(trajfile, xcol, ycol=None):
     if ycol is not None:
         data = np.vstack((data, traj[1:-1, ycol]))
     return data
+
+def extract_lm1(trajfile, lm1, lA, lB):
+    # Read and process the file
+    traj = np.loadtxt(trajfile)
+    first = traj[0, 1]
+    last = traj[-1, 1]
+    if first > lA and last > lA:
+        type = "0-RMR"
+    elif first > lA and last < lm1:
+        type = "0-RML"
+    elif first < lm1 and last < lm1:
+        type = "0-LML"
+    elif first < lm1 and last > lA:
+        type = "0-LMR"
+    elif first < lA and last > lB:
+        type = "0+LMR"
+    elif first > lm1 and first < lA and last > lm1 and first < lA:
+        type = "0+LML"
+    else:
+        print(f"first phasepoint is: {first}")
+        print(f"last phasepoint is: {last}")
+        raise ValueError("Unexpected type encountered.")
+    data = traj[1:-1, 1] # remove first and last frames
+    return data, type, len(traj)
 
 
 def update_histogram(data, factor, histogram, Minx, Miny, dx, dy):
@@ -29,7 +54,7 @@ def update_histogram(data, factor, histogram, Minx, Miny, dx, dy):
 
 
 def calculate_free_energy(trajlabels, WFtot, Trajdir, outfolder, histo_stuff):
-    print("We are now going to perform the Landau Free Energy calculations")
+    print("We are now going to perform the Landau Free Energy calculations.")
     Nbinsx, Nbinsy = histo_stuff["nbx"], histo_stuff["nby"]
     Maxx, Minx = histo_stuff["maxx"], histo_stuff["minx"]
     Maxy, Miny = histo_stuff["maxy"], histo_stuff["miny"]
@@ -58,11 +83,144 @@ def calculate_free_energy(trajlabels, WFtot, Trajdir, outfolder, histo_stuff):
     # normalize such that the highest value equals 1
     max_value = np.max(histogram)
     histogram /= max_value
-
     np.savetxt(os.path.join(outfolder, "histo_xval.txt"), xval)
     if not yval is None:
         np.savetxt(os.path.join(outfolder, "histo_yval.txt"), yval)
     np.savetxt(os.path.join(outfolder, "histo_probability.txt"), histogram)
     
-    histogram = -np.log(histogram)  # get Landau free energy in kBT units
-    np.savetxt(os.path.join(outfolder, "histo_free_energy.txt"), histogram)
+    plt.figure(figsize=(6, 4))
+    plt.plot(xval, histogram, marker='o', linestyle='-')
+    plt.xlabel("Order parameter (Å)")
+    plt.ylabel("Probability")
+    plt.tight_layout()
+    plt.grid()
+    plt.savefig(os.path.join(outfolder, "histogram.png"), dpi=300)
+    plt.close()    
+
+    conditional_free_energy = -np.log(histogram)
+    np.savetxt(os.path.join(outfolder, "conditional_free_energy.txt"), histogram)
+    plt.figure(figsize=(6, 4))
+    plt.plot(xval, conditional_free_energy, '-o')
+    plt.xlabel("Order parameter (Å)")
+    plt.ylabel("Conditional free energy (kBT)")
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig(os.path.join(outfolder, "Cond_Free_Energy.png"), dpi=300)
+    plt.close()
+
+    # sym_histo = histogram + histogram[::-1]
+    # max_value = np.max(sym_histo)
+    # sym_histo /= max_value
+    # sym_free_energy = -np.log(sym_histo)
+    # np.savetxt(os.path.join(outfolder, "sym_free_energy.txt"), sym_free_energy)
+    # plt.figure(figsize=(6, 4))
+    # plt.plot(xval, sym_free_energy, '-o', label="Symmetrized")
+    # plt.plot(xval, conditional_free_energy, '-o', label="Conditional A→B")
+    # plt.plot(xval, conditional_free_energy[::-1], '-o', label="Conditional B→A")
+    # plt.xlabel("Order parameter (Å)")
+    # plt.ylabel("Free energy (kBT)")
+    # plt.legend()
+    # plt.grid()
+    # plt.tight_layout()
+    # plt.savefig(os.path.join(outfolder, "Free_Energy.png"), dpi=300)
+    # plt.close()
+
+
+def calculate_free_energy_lm1(trajlabels, WFtot, Trajdir, outfolder, histo_stuff, lm1, lA, lB):
+    print(f"="*65)
+    print(f"We are now going to perform the Landau Free Energy calculations:")
+    print(f"The value of Lambda_minus_one is {lm1}.") 
+    print(f"---------------------------------------")   
+    type_count = {
+        "0-RMR": [0, 0],
+        "0-RML": [0, 0],
+        "0-LML": [0, 0],
+        "0-LMR": [0, 0],
+        "0+LMR": [0, 0],
+        "0+LML": [0, 0]
+    }
+    length_count = {
+        "L0-": 0,
+        "L0+": 0
+    }
+    Nbinsx = histo_stuff["nbx"]
+    histogram = np.zeros(Nbinsx)
+    Minx = lm1
+    Maxx = lB
+    dx = (Maxx - Minx) / Nbinsx
+    xval = [Minx + 0.5 * dx + i * dx for i in range(Nbinsx)]
+    index_lA = np.where(np.array(xval) > lA)[0][0]
+
+    for label, factor in zip(trajlabels, WFtot):
+        trajfile = Trajdir + "/" + str(label) + "/order.txt"
+        data, type, L0 = extract_lm1(trajfile, lm1, lA, lB)
+        type_count[type][0] += 1
+        type_count[type][1] += factor
+        if type[1] == "-":
+            length_count["L0-"] += (L0 * factor)
+        if type[1] == "+":
+            length_count["L0+"] += (L0 * factor)
+
+        histogram = update_histogram(data, factor, histogram, Minx, Miny=None, dx=dx, dy=None)
+
+    R_END = type_count["0-LMR"][1] + type_count["0-RMR"][1]
+    L_END = type_count["0-LML"][1] + type_count["0-RML"][1]
+    xi = R_END / (R_END + L_END)
+    for key in type_count:
+        print(f"{key:7}: {type_count[key][0]}")
+    print(f"-"*35)
+    print(f"number of unique paths: {sum(type_count[key][0] for key in type_count)}")
+    print(f"xi value: {xi:.6f}")
+    print(f"L0- (with end-points) is: {length_count['L0-']:.6f}")
+    print(f"L0+ (with end-points) is: {length_count['L0+']:.6f}")
+    print(f"Flux (without end-points) is: {(1 / (length_count['L0-'] + length_count['L0+'] - 4)):.6f}")
+    print(f"Corrected flux (without end-points) is: {(xi / (length_count['L0-'] - 2 + (xi * (length_count['L0+'] - 2)))):.6f}")
+    print(f"="*55)
+
+    np.savetxt(os.path.join(outfolder, "histo_xval.txt"), xval)
+    np.savetxt(os.path.join(outfolder, "histo_probability.txt"), histogram)
+
+    plt.figure(figsize=(6, 4))
+    plt.plot(xval, histogram, marker='o', linestyle='-')
+    plt.xlabel("Order parameter (Å)")
+    plt.ylabel("Probability")
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig(os.path.join(outfolder, "histogram.png"), dpi=300)
+    plt.close()
+
+    histogram[:index_lA] = histogram[:index_lA] / xi
+    np.savetxt(os.path.join(outfolder, "histo_xi_corrected.txt"), histogram)
+    plt.figure(figsize=(6, 4))
+    plt.plot(xval, histogram, marker='o', linestyle='-')
+    plt.xlabel("Order parameter (Å)")
+    plt.ylabel("Probability")
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig(os.path.join(outfolder, "histogram_xi_corrected.png"), dpi=300)
+    plt.close()
+
+    max_value = np.max(histogram)
+    histogram /= max_value
+    conditional_free_energy = -np.log(histogram)
+    np.savetxt(os.path.join(outfolder, "cond_free_energy.txt"), conditional_free_energy)
+
+    histogram_sym = np.append(histogram, np.zeros(index_lA, dtype=histogram.dtype))
+    sym_histo = histogram_sym + histogram_sym[::-1]
+    max_value = np.max(sym_histo)
+    sym_histo /= max_value
+    sym_free_energy = -np.log(sym_histo)
+    np.savetxt(os.path.join(outfolder, "sym_free_energy.txt"), sym_free_energy)
+    xval_sym = [Minx + 0.5 * dx + i * dx for i in range(Nbinsx+index_lA)]
+    np.savetxt(os.path.join(outfolder, "sym_xval.txt"), xval_sym)
+    plt.figure(figsize=(6, 4))
+    plt.plot(xval_sym, sym_free_energy, '-o', label="Symmetrized")
+    plt.plot(xval, conditional_free_energy, '-o', label="Conditional A→B")
+    plt.plot(xval_sym[index_lA:], conditional_free_energy[::-1], '-o', label="Conditional B→A")
+    plt.xlabel("Order parameter (Å)")
+    plt.ylabel("Free energy (kBT)")
+    plt.grid()
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(os.path.join(outfolder, "Free_Energy.png"), dpi=300)
+    plt.close()

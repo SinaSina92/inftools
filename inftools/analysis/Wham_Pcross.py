@@ -4,7 +4,7 @@ import numpy as np
 
 from inftools.analysis.rec_error import rec_block_errors
 from inftools.analysis.toolsWHAM import PcrossWHAM2, get_WHAMfactors
-from inftools.analysis.Free_energy import calculate_free_energy
+from inftools.analysis.Free_energy import calculate_free_energy, calculate_free_energy_lm1
 from inftools.analysis.pcross_plot import plot_combined_pcross
 
 def run_analysis(inp_dic):
@@ -249,6 +249,7 @@ def run_analysis(inp_dic):
     # Normalize the p_loc arrays such that each local
     # crossing probability of ensemble [i+] starts with 1 at lambda_i
     Pi0_wham, Q = WHAM_PQ(nplus_ens, lambda_interfaces, lamres, eta, v_alpha)
+    print(f"="*110)
     print(
         "Check. The following two numbers should be the nearly same:",
         Pi0_wham[-1],
@@ -850,6 +851,9 @@ def run_analysis(inp_dic):
         WFtot = [a + b for a, b in zip(WHAMfactorsMIN, WHAMfactors)]
         trajlabels = [int(x[0]) for x in matrix]
 
-        calculate_free_energy(trajlabels, WFtot, inp_dic["trajdir"], folder, histo_stuff)
+        if lm1 is not None:
+            calculate_free_energy_lm1(trajlabels, WFtot, inp_dic["trajdir"], folder, histo_stuff, lm1, lambda_interfaces[0], lambda_interfaces[-1])
+        else:
+            calculate_free_energy(trajlabels, WFtot, inp_dic["trajdir"], folder, histo_stuff)
 
     # Finished!
