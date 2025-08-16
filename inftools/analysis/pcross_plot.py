@@ -58,6 +58,7 @@ def plot_combined_pcross(wham_folder):
     # Plot (b): runav_Pcross
     # ======================
     data = pd.read_csv(os.path.join(wham_folder, "runav_Pcross.txt"), sep=r'\s+')
+    crossing_prob = data.iloc[-1, 1]
     ax = axs[1]
     ax.plot(data['#counter'], data.iloc[:, 1])
     ax.set_xlabel('Accepted path count')
@@ -86,6 +87,8 @@ def plot_combined_pcross(wham_folder):
     ax.set_xlabel('Block length')
     ax.set_ylabel(r'Relative error $P_A(\lambda_B|\lambda_A)$')
     ax.tick_params(axis='both')
+
+    axs[0].set_title(f"Pcross = {crossing_prob:.2e} ± {mean_val * 100:.0f} \%")
 
     # ======================
     # Save figure

@@ -4,11 +4,12 @@ import numpy as np
 
 from inftools.analysis.rec_error import rec_block_errors
 from inftools.analysis.toolsWHAM import PcrossWHAM2, get_WHAMfactors
-from inftools.analysis.Free_energy import calculate_free_energy, calculate_free_energy_lm1
+from inftools.analysis.Free_energy import calculate_free_energy
 from inftools.analysis.pcross_plot import plot_combined_pcross
 
 def run_analysis(inp_dic):
     CalcFE = inp_dic["fener"]
+    sym = inp_dic["sym"]
     ifile = inp_dic["data"]
     lambda_interfaces = [float(i) for i in inp_dic["intfs"]]
     lamres = float(inp_dic["lamres"])
@@ -851,9 +852,6 @@ def run_analysis(inp_dic):
         WFtot = [a + b for a, b in zip(WHAMfactorsMIN, WHAMfactors)]
         trajlabels = [int(x[0]) for x in matrix]
 
-        if lm1 is not None:
-            calculate_free_energy_lm1(trajlabels, WFtot, inp_dic["trajdir"], folder, histo_stuff, lm1, lambda_interfaces[0], lambda_interfaces[-1])
-        else:
-            calculate_free_energy(trajlabels, WFtot, inp_dic["trajdir"], folder, histo_stuff)
+        calculate_free_energy(trajlabels, WFtot, inp_dic["trajdir"], folder, histo_stuff, lm1, lambda_interfaces[0], lambda_interfaces[-1], sym)
 
     # Finished!
