@@ -852,6 +852,6 @@ def run_analysis(inp_dic):
         WFtot = [a + b for a, b in zip(WHAMfactorsMIN, WHAMfactors)]
         trajlabels = [int(x[0]) for x in matrix]
 
+        print(f"="*55)
+        print(f"nskip is {nskip}!")
         calculate_free_energy(trajlabels, WFtot, inp_dic["trajdir"], folder, histo_stuff, lm1, lambda_interfaces[0], lambda_interfaces[-1], sym)
-
-    # Finished!
