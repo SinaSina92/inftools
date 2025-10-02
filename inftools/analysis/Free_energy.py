@@ -63,19 +63,20 @@ def calculate_free_energy(trajlabels, WFtot, Trajdir, outfolder, histo_stuff, lm
         data = extract(trajfile, xcol, ycol)
         histogram = update_histogram(data, factor, histogram, Minx, Maxx, Miny, dx, dy)
 
+    index_lA = None
     if xi is not None:
         index_lA = np.where(np.array(xval) > lA)[0][0]
         histogram[:index_lA] = histogram[:index_lA] / xi
 
     # normalize such that the highest value equals 1
     max_value = np.max(histogram)
-    np.savetxt(os.path.join(outfolder, "histo_xval.txt"), xval)
     if not yval is None:
         np.savetxt(os.path.join(outfolder, "histo_yval.txt"), yval)
-    np.savetxt(os.path.join(outfolder, "histo_probability.txt"), histogram)
+        
+    np.savetxt(os.path.join(outfolder, "histo_probability.txt"), np.column_stack((xval, histogram)), header=f"lm1={lm1}, lA={lA}, lB={lB}, first_bin_after_lA_index={index_lA}", comments="# ") 
     
     conditional_free_energy = -np.log(histogram/max_value)  # get Landau free energy in kBT units
-    np.savetxt(os.path.join(outfolder, "histo_free_energy.txt"), conditional_free_energy)
+    np.savetxt(os.path.join(outfolder, "histo_free_energy.txt"), np.column_stack((xval, conditional_free_energy)), header=f"lm1={lm1}, lA={lA}, lB={lB}, first_bin_after_lA_index={index_lA}", comments="# ") 
 
     if Nbinsy is None:
         plt.plot(xval, histogram, marker='o', markersize=3, linewidth=1)
@@ -84,6 +85,14 @@ def calculate_free_energy(trajlabels, WFtot, Trajdir, outfolder, histo_stuff, lm
         plt.grid()
         plt.tight_layout()
         plt.savefig(os.path.join(outfolder, "histogram.png"), dpi=300)
+        plt.close()
+
+        plt.plot(xval, conditional_free_energy, marker='o', markersize=3, linewidth=1)
+        plt.xlabel("Order parameter (Å)")
+        plt.ylabel("Free energy (kBT)")
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(os.path.join(outfolder, "free_energy_conditional.png"), dpi=300)
         plt.close()
 
     if Nbinsy is None and sym:
@@ -95,10 +104,11 @@ def calculate_free_energy(trajlabels, WFtot, Trajdir, outfolder, histo_stuff, lm
         plt.plot(xval, conditional_free_energy, label="Conditional A→B", marker='o', markersize=3, linewidth=1)
         plt.plot(xval_sym[index_lA:], conditional_free_energy[::-1], label="Conditional B→A", marker='o', markersize=3, linewidth=1)
         plt.plot(xval_sym, free_energy_sym, label="Symmetrized", marker='o', markersize=3, linewidth=1)
+        np.savetxt(os.path.join(outfolder, "histo_free_energy_sym.txt"), np.column_stack((xval_sym, free_energy_sym)), header=f"lm1={lm1}, lA={lA}, lB={lB}, first_bin_after_lA_index={index_lA}", comments="# ")        
         plt.xlabel("Order parameter (Å)")
         plt.ylabel("Free energy (kBT)")
         plt.grid()
         plt.legend()
         plt.tight_layout()
-        plt.savefig(os.path.join(outfolder, "free_energy_sym.png"), dpi=300)
+        plt.savefig(os.path.join(outfolder, "free_energy_symmetrized.png"), dpi=300)
         plt.close()

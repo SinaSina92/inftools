@@ -42,7 +42,7 @@ def run_analysis(inp_dic):
     lm1 = inp_dic["lm1"]
     z_min = inp_dic["zmin"]
     z_max = inp_dic["zmax"]
-    timeunit = inp_dic["timestep"] * inp_dic["subcycle"]
+    timeunit = inp_dic["timestep"] * inp_dic["subcycle"] * 1e-15 # fs to sec
 
     # the Cxy values of [0+] are stored in the i0plus-th
     # column (first coulumn is counted as column nr 0)
@@ -882,8 +882,10 @@ def run_analysis(inp_dic):
     trajlabels = [int(x[0]) for x in matrix]
     xi_best_estimate = None
     if lm1 != False:
-        print(f"CHECK! Timeunit (timestep*subcycles) is {timeunit} fs.")
+        print(f"CHECK! Timeunit (timestep*subcycles) is {timeunit} s.")
         runav_xi_lm1 = []
+        DeltaZ_phasepoints_sum_list = []    
+        count_0_min_paths_sum_list = []        
         runav_tau_ref = []
         count_0_min_paths_sum = 0
         DeltaZ_phasepoints_sum = 0
@@ -891,17 +893,19 @@ def run_analysis(inp_dic):
         for label, factor in zip(trajlabels, WFtot):
             trajfile = inp_dic["trajdir"] + "/" + str(label) + "/order.txt"
             type, DeltaZ_phasepoints = extract(trajfile, lm1, lambda_interfaces[0], histo_stuff["xcol"], z_min, z_max)
+            # for tau_ref calculation
             DeltaZ_phasepoints_sum += DeltaZ_phasepoints
-            type_count[type] += factor
+            DeltaZ_phasepoints_sum_list.append(DeltaZ_phasepoints_sum)
             if type != "0+":
                 count_0_min_paths_sum += 1
+            count_0_min_paths_sum_list.append(count_0_min_paths_sum)
             runav_tau_ref.append(DeltaZ_phasepoints_sum / count_0_min_paths_sum if count_0_min_paths_sum != 0 else 0)
+            # for xi calculation
+            type_count[type] += factor
             R_END = type_count["LMR"] + type_count["RMR"]
             L_END = type_count["LML"] + type_count["RML"]
             runav_xi_lm1.append(float('nan') if (R_END + L_END) == 0 else R_END / (R_END + L_END))
         xi_best_estimate = runav_xi_lm1[-1]
-        timeunit *= 1e-15 # fs to sec
-        runav_tau_ref = [x * timeunit for x in runav_tau_ref] # convert phasepoint to fs
         runav_flux_lm1 = [x / (((y1 - 2) + x * (y2 - 2)) * timeunit) for x, y1, y2 in zip(runav_xi_lm1, runav_L0min, runav_L0plus)]
         runav_rate_lm1 = [y1 * y2 for y1, y2 in zip(runav_flux_lm1, run_av_PtotWHAM)]
         filename = os.path.join(folder, "runav_xi_flux_rate_lm1.txt")
@@ -916,14 +920,19 @@ def run_analysis(inp_dic):
         print("Running averages of xi flux rate permeability with lm1_corrected written to: ", filename)
         
         if z_min != None or z_max != None:
+            runav_tau_ref = [x * timeunit for x in runav_tau_ref] # convert phasepoint to fs
             DeltaZ = (z_max - z_min) * 1e-8 # Å to cm so that the permeability is in units of cm/s 
             runav_perm_lm1 = [(x1 * DeltaZ * x2 / y1) if y1 != 0 else float('nan') for x1, x2, y1 in zip(runav_xi_lm1, run_av_PtotWHAM, runav_tau_ref)]
             filename = os.path.join(folder, "runav_permeability_lm1.txt")
             with open(filename, "w") as file:
-                file.write("#counter, permeability (cm/s)\n")
-                for counter, y1 in enumerate(runav_perm_lm1):
+                file.write("#counter, xi, 0_minus_path_count, phasepoints_in_DeltaZ, tau_ref (1/s), permeability (cm/s)\n")
+                for counter, (y1, y2, y3, y4, y5) in enumerate(zip(runav_xi_lm1, count_0_min_paths_sum_list, DeltaZ_phasepoints_sum_list, runav_tau_ref, runav_perm_lm1)):
                     file.write(f"{counter}   ")
                     file.write(f"\t{y1}")
+                    file.write(f"\t{y2}")
+                    file.write(f"\t{y3}")
+                    file.write(f"\t{y4}")
+                    file.write(f"\t{y5}")
                     file.write("\n")
             print("Running average of permeability with lm1 corrected version written to: ", filename)
             

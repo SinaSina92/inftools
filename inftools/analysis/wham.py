@@ -25,8 +25,9 @@ def wham(
     maxy: Annotated[float, typer.Option("-maxy", help="Same as -maxx but in y-direction")] = None,
     xcol: Annotated[int, typer.Option("-xcol", help="What column in order.txt to use as x-value when calculating FE")] = 1,
     ycol: Annotated[int, typer.Option("-ycol", help="Same as -xcol but for y-value")] = None,
-    zmin: Annotated[float, typer.Option("-zmin", help="Min range for DeltaZ region for permeability calculation in Å.")] = None,
-    zmax: Annotated[float, typer.Option("-zmax", help="Max range for DeltaZ region for permeability calculation in Å.")] = None,
+    zmin: Annotated[float, typer.Option("-zmin", help="Min range for DeltaZ region in Å for permeability calculation.")] = None,
+    zmax: Annotated[float, typer.Option("-zmax", help="Max range for DeltaZ region in Å for permeability calculation.")] = None,
+    timestep: Annotated[float, typer.Option("-timestep", help="Time step in fs for flux and permeability calculation.")] = ...,
     sym: Annotated[bool, typer.Option("-sym", help="If set, symmetrized free energy will be calculated")] = False,
     ):
     """Run Titus0 wham script."""
@@ -42,6 +43,7 @@ def wham(
         "sym": sym,
         "zmin": zmin,
         "zmax": zmax,
+        "timestep": timestep,
         "folder": folder,
         "histo_stuff":{
             "nbx":nbx, "minx":minx, "maxx":maxx, "xcol":xcol,
@@ -57,7 +59,6 @@ def wham(
         return
     inps["intfs"] = config["simulation"]["interfaces"]
     inps["lm1"] = config["simulation"]["tis_set"].get("lambda_minus_one", None)
-    inps["timestep"] = config["engine"].get("timestep", None)
     inps["subcycle"] = config["engine"].get("subcycles", None)
 
     if inps["lamres"] is None:
